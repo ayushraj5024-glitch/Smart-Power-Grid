@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wind Power Prediction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --sky: #0a1628;
+            --sky-mid: #0d2040;
+            --card: rgba(255,255,255,0.04);
+            --card-border: rgba(255,255,255,0.09);
+            --accent: #38e8c5;
+            --accent2: #4fa3ff;
+            --warn: #f59e0b;
+            --text: #e8f4ff;
+            --muted: rgba(232,244,255,0.45);
+            --input-bg: rgba(255,255,255,0.06);
+            --input-border: rgba(255,255,255,0.12);
+            --input-focus: rgba(56,232,197,0.35);
+        }
+
+        body {
+            font-family: 'Syne', sans-serif;
+            background: var(--sky);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated sky background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 10%, rgba(79,163,255,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(56,232,197,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse 100% 80% at 50% 100%, rgba(13,32,64,0.9) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Spinning turbine SVG */
+        .turbine-bg {
+            position: fixed;
+            bottom: -40px;
+            right: -40px;
+            width: 320px;
+            opacity: 0.06;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .turbine-bg2 {
+            position: fixed;
+            top: -60px;
+            left: -60px;
+            width: 240px;
+            opacity: 0.04;
+            pointer-events: none;
+            z-index: 0;
+            transform: scaleX(-1);
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .blade-group {
+            transform-origin: 50% 50%;
+            animation: spin 8s linear infinite;
+        }
+
+        .blade-group2 {
+            transform-origin: 50% 50%;
+            animation: spin 12s linear infinite;
+        }
+
+        /* Main container */
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .tag {
+            display: inline-block;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent);
+            background: rgba(56,232,197,0.1);
+            border: 1px solid rgba(56,232,197,0.25);
+            padding: 4px 14px;
+            border-radius: 20px;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #e8f4ff 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--muted);
+            font-weight: 400;
+        }
+
+        /* Form card */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(20px);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        label svg {
+            width: 13px;
+            height: 13px;
+            opacity: 0.7;
+        }
+
+        input[type="number"] {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 10px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 15px;
+            padding: 11px 14px;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            -moz-appearance: textfield;
+        }
+
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+        input[type="number"]::placeholder {
+            color: rgba(232,244,255,0.2);
+            font-size: 13px;
+        }
+
+        input[type="number"]:focus {
+            border-color: rgba(56,232,197,0.5);
+            background: rgba(56,232,197,0.05);
+            box-shadow: 0 0 0 3px var(--input-focus);
+        }
+
+        /* Rain toggle */
+        .rain-toggle {
+            display: flex;
+            gap: 8px;
+        }
+
+        .rain-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid var(--input-border);
+            background: var(--input-bg);
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .rain-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+
+        .rain-btn.active {
+            background: rgba(56,232,197,0.12);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Predict button */
+        .btn {
+            width: 100%;
+            padding: 15px;
+            margin-top: 1.5rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            color: #0a1628;
+            font-family: 'Syne', sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.15s, opacity 0.15s;
+        }
+
+        .btn:hover { transform: translateY(-1px); opacity: 0.92; }
+        .btn:active { transform: translateY(0); }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(255,255,255,0.15), transparent);
+            pointer-events: none;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 1.2rem;
+            color: var(--warn);
+            font-family: 'DM Mono', monospace;
+            font-size: 13px;
+            letter-spacing: 0.05em;
+        }
+
+        .loading.show { display: flex; }
+
+        .loader {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(245,158,11,0.2);
+            border-top-color: var(--warn);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        /* Result */
+        .result-box {
+            display: none;
+            margin-top: 1.5rem;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(56,232,197,0.08) 0%, rgba(79,163,255,0.08) 100%);
+            border: 1px solid rgba(56,232,197,0.2);
+            padding: 1.4rem;
+            text-align: center;
+            animation: fadeUp 0.5s ease;
+        }
+
+        .result-box.show { display: block; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .result-value {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: var(--accent);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .result-unit {
+            font-family: 'DM Mono', monospace;
+            font-size: 1rem;
+            color: var(--muted);
+        }
+
+        /* Error */
+        .error-box {
+            display: none;
+            margin-top: 1.2rem;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: rgba(226, 75, 74, 0.1);
+            border: 1px solid rgba(226, 75, 74, 0.25);
+            color: #f87171;
+            font-size: 13px;
+            font-family: 'DM Mono', monospace;
+            text-align: center;
+        }
+
+        .error-box.show { display: block; }
+
+        /* Divider */
+        .divider {
+            border: none;
+            border-top: 1px solid var(--card-border);
+            margin: 1.5rem 0 1.2rem;
+        }
+
+        .section-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 420px) {
+            .grid { grid-template-columns: 1fr; }
+            h1 { font-size: 1.9rem; }
+            .card { padding: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Background turbines -->
+<svg class="turbine-bg" viewBox="0 0 200 300" fill="white" xmlns="http://www.w3.org/2000/svg">
+    <rect x="97" y="120" width="6" height="180" rx="3"/>
+    <g class="blade-group" style="transform-origin:100px 120px">
+        <ellipse cx="100" cy="70" rx="7" ry="52" transform="rotate(0 100 120)"/>
+        <ellipse cx="100" cy="70" rx="7" ry="52" transform="rotate(120 100 120)"/>
+        <ellipse cx="100" cy="70" rx="7" ry="52" transform="rotate(240 100 120)"/>
+        <circle cx="100" cy="120" r="8"/>
+    </g>
+</svg>
+
+<svg class="turbine-bg2" viewBox="0 0 200 300" fill="white" xmlns="http://www.w3.org/2000/svg">
+    <rect x="97" y="110" width="6" height="180" rx="3"/>
+    <g class="blade-group2" style="transform-origin:100px 110px">
+        <ellipse cx="100" cy="65" rx="6" ry="46" transform="rotate(0 100 110)"/>
+        <ellipse cx="100" cy="65" rx="6" ry="46" transform="rotate(120 100 110)"/>
+        <ellipse cx="100" cy="65" rx="6" ry="46" transform="rotate(240 100 110)"/>
+        <circle cx="100" cy="110" r="7"/>
+    </g>
+</svg>
+
+<div class="wrapper">
+
+    <div class="header">
+        <div class="tag">⚡ ML Predictor</div>
+        <h1>Wind Power<br>Prediction</h1>
+        <p class="subtitle">Enter weather parameters to estimate turbine output</p>
+    </div>
+
+    <div class="card">
+
+        <p class="section-label">Atmospheric Conditions</p>
+        <div class="grid">
+            <div class="field">
+                <label>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                    Temp (°C)
+                </label>
+                <input type="number" id="temp" placeholder="e.g. 22">
+            </div>
+            <div class="field">
+                <label>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a6 6 0 0 1 6 6c0 4.97-6 12-6 12S6 12.97 6 8a6 6 0 0 1 6-6z"/><circle cx="12" cy="8" r="2"/></svg>
+                    Humidity (%)
+                </label>
+                <input type="number" id="humidity" placeholder="e.g. 60">
+            </div>
+            <div class="field">
+                <label>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>
+                    Wind (m/s)
+                </label>
+                <input type="number" id="wind" placeholder="e.g. 8.5">
+            </div>
+            <div class="field">
+                <label>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+                    Cloud (%)
+                </label>
+                <input type="number" id="cloud" placeholder="e.g. 40">
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="field">
+                <label>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="12" x2="14" y2="14"/></svg>
+                    Pressure (hPa)
+                </label>
+                <input type="number" id="pressure" placeholder="e.g. 1013">
+            </div>
+            <div class="field">
+                <label>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><path d="M16 12a4 4 0 0 1-8 0"/></svg>
+                    Rain
+                </label>
+                <div class="rain-toggle">
+                    <button class="rain-btn active" onclick="setRain(0)" id="rain-no">☀ No</button>
+                    <button class="rain-btn" onclick="setRain(1)" id="rain-yes">🌧 Yes</button>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" id="rain" value="0">
+
+        <button class="btn" onclick="predictPower()">
+            ⚡ Predict Power Output
+        </button>
+
+        <div class="loading" id="loading">
+            <div class="loader"></div>
+            Calculating...
+        </div>
+
+        <div class="result-box" id="result-box">
+            <p class="result-label">Estimated Power Output</p>
+            <div class="result-value" id="result-value">—</div>
+            <div class="result-unit">Megawatts (MW)</div>
+        </div>
+
+        <div class="error-box" id="error-box">
+            ⚠ Could not connect to backend — make sure Flask is running on port 5000.
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function setRain(val) {
+        document.getElementById("rain").value = val;
+        document.getElementById("rain-no").classList.toggle("active", val === 0);
+        document.getElementById("rain-yes").classList.toggle("active", val === 1);
+    }
+
+    async function predictPower() {
+        const loading = document.getElementById("loading");
+        const resultBox = document.getElementById("result-box");
+        const errorBox = document.getElementById("error-box");
+
+        resultBox.classList.remove("show");
+        errorBox.classList.remove("show");
+        loading.classList.add("show");
+
+        const data = {
+            Temperature: parseFloat(document.getElementById("temp").value),
+            Humidity: parseFloat(document.getElementById("humidity").value),
+            Wind_Speed: parseFloat(document.getElementById("wind").value),
+            Cloud_Cover: parseFloat(document.getElementById("cloud").value),
+            Pressure: parseFloat(document.getElementById("pressure").value),
+            Rain_encoded: parseInt(document.getElementById("rain").value)
+        };
+
+        try {
+            const response = await fetch("http://127.0.0.1:5000/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            loading.classList.remove("show");
+            document.getElementById("result-value").textContent =
+                Number(result.prediction).toFixed(2);
+            resultBox.classList.add("show");
+
+        } catch (error) {
+            loading.classList.remove("show");
+            errorBox.classList.add("show");
+        }
+    }
+</script>
+</body>
+</html>
